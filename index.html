@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Нийгмийн эрдэмтдийн карт</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif:wght@600;700&family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Concept: squared school-notebook paper in blue and white. One index card at a time, three ways to practise: flip, quiz, match. */
+:root{
+  --paper:#ffffff;
+  --wash:#eef4ff;
+  --sky:#d3e2ff;
+  --line:#bcd0f6;
+  --blue:#2457e6;
+  --deep:#0e2a6b;
+  --ink:#13224a;
+  --muted:#566789;
+  --grid:rgba(36,87,230,.08);
+  --good:#16915f; --good-bg:#e1f6ec; --good-ink:#0b4a31;
+  --bad:#cf3e57; --bad-bg:#fde8ec; --bad-ink:#6e1426;
+  --display:'Rubik','Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --serif:'Noto Serif','PT Serif',Georgia,'Times New Roman',serif;
+  color-scheme:light;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:var(--display);font-size:16px;line-height:1.45;color:var(--ink);
+  background-color:var(--paper);
+  background-image:
+    linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px),
+    linear-gradient(180deg,var(--paper) 0%,var(--wash) 100%);
+  background-size:28px 28px,28px 28px,100% 100%;
+}
+button{font-family:inherit}
+:focus-visible{outline:3px solid var(--blue);outline-offset:3px}
+
+.wrap{
+  max-width:620px;margin:0 auto;
+  padding-block:22px 48px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:18px;
+}
+.head{display:flex;flex-direction:column;gap:6px}
+.kicker{font:600 12px var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--blue)}
+h1{margin:0;font:700 clamp(26px,7.4vw,38px)/1.12 var(--display);color:var(--deep);text-wrap:balance}
+.sub{margin:0;color:var(--muted);font-size:15px}
+
+/* mode tabs */
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:2px solid var(--deep);border-radius:14px;background:var(--paper);overflow:hidden}
+.tabs button{min-height:48px;padding:0 6px;border:0;background:transparent;color:var(--deep);font:600 15px var(--display);cursor:pointer}
+.tabs button+button{border-left:2px solid var(--deep)}
+.tabs button[aria-selected="true"]{background:var(--deep);color:#fff}
+
+/* topic chips */
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;border:1.5px solid var(--line);border-radius:99px;background:var(--paper);color:var(--deep);font:500 14px var(--display);cursor:pointer}
+.chip small{font:500 12px var(--display);color:var(--muted);font-variant-numeric:tabular-nums}
+.chip[aria-pressed="true"]{background:var(--blue);border-color:var(--blue);color:#fff}
+.chip[aria-pressed="true"] small{color:#d7e3ff}
+
+section{display:flex;flex-direction:column;gap:16px}
+
+.meter{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+.bar{height:8px;border-radius:99px;background:var(--sky);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--blue);border-radius:99px;transition:width .3s ease}
+
+/* index card */
+.scene{perspective:1400px}
+.card{
+  display:grid;grid-template-columns:minmax(0,1fr);min-height:380px;
+  position:relative;cursor:pointer;
+  transform-style:preserve-3d;transition:transform .55s cubic-bezier(.2,.7,.2,1);
+  -webkit-tap-highlight-color:transparent;
+}
+.card.flipped{transform:rotateY(180deg)}
+.face{
+  grid-area:1/1;min-width:0;
+  display:flex;flex-direction:column;gap:14px;
+  padding:18px 18px 16px;
+  border:2px solid var(--deep);border-radius:16px;box-shadow:6px 6px 0 var(--sky);
+  backface-visibility:hidden;-webkit-backface-visibility:hidden;
+}
+.front{background:var(--paper)}
+.back{background:var(--deep);color:#fff;transform:rotateY(180deg)}
+.face-top{display:flex;justify-content:space-between;align-items:center;gap:10px;padding-bottom:12px;border-bottom:2px solid var(--sky)}
+.back .face-top{border-bottom-color:rgba(255,255,255,.22)}
+.tag{font:600 12px var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--blue);background:var(--wash);border:1.5px solid var(--line);border-radius:99px;padding:4px 10px}
+.back .tag{color:#fff;background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.3)}
+.no{font:700 22px var(--display);color:var(--deep);font-variant-numeric:tabular-nums}
+.back .no{color:#bcd2ff}
+.q{margin:auto 0;font:700 clamp(18px,4.8vw,23px)/1.5 var(--serif);color:var(--ink);text-wrap:pretty;overflow-wrap:anywhere}
+.hint{font:500 13px var(--display);color:var(--muted);text-align:right}
+.ask{font:600 15px var(--display);color:var(--blue)}
+.answer{margin:auto 0;display:flex;flex-direction:column;gap:12px}
+.eyebrow{font:600 12px var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.back .eyebrow{color:#bcd2ff}
+.who{margin:0;font:700 clamp(26px,7.4vw,34px)/1.15 var(--display);color:#fff;overflow-wrap:anywhere}
+.key{margin:0;align-self:flex-start;padding:5px 12px;border-radius:99px;background:var(--sky);color:var(--deep);font:600 14px var(--display)}
+.note{margin:0;font-size:15px;line-height:1.55;color:#d5e3ff}
+
+/* buttons */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:50px;padding:0 18px;
+  border:2px solid var(--deep);border-radius:12px;background:var(--paper);color:var(--deep);
+  font:600 16px var(--display);cursor:pointer;box-shadow:3px 3px 0 var(--sky);
+}
+.btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--sky)}
+.btn.primary{background:var(--blue);color:#fff}
+.btn.primary.on{background:var(--good);border-color:var(--good-ink)}
+.btn svg{width:22px;height:22px;flex:none}
+.actions{display:grid;grid-template-columns:54px 1fr 1fr 54px;gap:10px}
+.actions .btn{padding:0 8px}
+.tools{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.linkbtn{background:none;border:0;padding:8px 0;color:var(--blue);font:500 14px var(--display);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+
+/* quiz */
+.opts{display:flex;flex-direction:column;gap:10px}
+.opt{
+  display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:10px 14px;
+  border:2px solid var(--deep);border-radius:12px;background:var(--paper);color:var(--ink);
+  font:500 16px/1.3 var(--display);text-align:left;cursor:pointer;box-shadow:3px 3px 0 var(--sky);
+}
+.opt .ltr{flex:none;width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:var(--wash);border:1.5px solid var(--line);color:var(--blue);font:600 14px var(--display)}
+.opt .otxt{min-width:0;overflow-wrap:anywhere}
+.opt:disabled{cursor:default}
+.opt.correct{background:var(--good-bg);border-color:var(--good);color:var(--good-ink)}
+.opt.correct .ltr{background:var(--good);border-color:var(--good);color:#fff}
+.opt.wrong{background:var(--bad-bg);border-color:var(--bad);color:var(--bad-ink)}
+.opt.wrong .ltr{background:var(--bad);border-color:var(--bad);color:#fff}
+.opt.dim{opacity:.55}
+.fb{display:flex;flex-direction:column;gap:6px;padding:14px 16px;border:2px solid;border-radius:14px}
+.fb.ok{background:var(--good-bg);border-color:var(--good);color:var(--good-ink)}
+.fb.bad{background:var(--bad-bg);border-color:var(--bad);color:var(--bad-ink)}
+.fb b{font-size:17px}
+.fb p{margin:0;font-size:15px;line-height:1.5}
+.result{display:flex;flex-direction:column;gap:10px;padding:22px 18px;border:2px solid var(--deep);border-radius:16px;background:var(--paper);box-shadow:6px 6px 0 var(--sky)}
+.score{font:700 56px/1 var(--display);color:var(--deep);font-variant-numeric:tabular-nums}
+.msg{margin:0;font:600 18px var(--display);color:var(--ink)}
+.miss{margin:6px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.miss li{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:10px;background:var(--wash);border:1.5px solid var(--line)}
+.miss span{font-size:13px;color:var(--muted)}
+.miss b{font-size:15px;color:var(--deep)}
+.row2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:6px}
+
+/* match */
+.board{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.col{display:flex;flex-direction:column;gap:10px;min-width:0}
+.colhead{font:600 12px var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tile{
+  min-width:0;min-height:68px;padding:10px 10px;
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  border:2px solid var(--deep);border-radius:12px;background:var(--paper);color:var(--deep);
+  font:500 15px/1.3 var(--display);cursor:pointer;box-shadow:3px 3px 0 var(--sky);overflow-wrap:anywhere;
+}
+.tile.sel{background:var(--blue);color:#fff}
+.tile.ok{background:var(--good-bg);border-color:var(--good);color:var(--good-ink);box-shadow:none;cursor:default}
+.tile.bad{background:var(--bad-bg);border-color:var(--bad);color:var(--bad-ink);animation:shake .4s}
+@keyframes shake{20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+
+@media (hover:hover){
+  .chip:hover,.opt:not(:disabled):hover,.tile:not(.ok):not(.sel):hover,.btn:hover{background:var(--wash)}
+  .btn.primary:hover{background:#1a47c4}
+  .tabs button[aria-selected="false"]:hover{background:var(--wash)}
+}
+@media (prefers-reduced-motion:reduce){
+  .card,.bar i{transition:none}
+  .tile.bad{animation:none}
+}
+@media (max-width:380px){
+  .actions{grid-template-columns:48px 1fr 1fr 48px}
+  .tile{font-size:14px}
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="head">
+    <div class="kicker">10–11-р анги · Нийгмийн ухаан</div>
+    <h1>Нийгмийн эрдэмтдийн карт</h1>
+    <p class="sub" id="sub"></p>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Горим">
+    <button type="button" role="tab" id="tab-study" data-mode="study" aria-selected="true">Цээжлэх</button>
+    <button type="button" role="tab" id="tab-quiz" data-mode="quiz" aria-selected="false">Шалгалт</button>
+    <button type="button" role="tab" id="tab-match" data-mode="match" aria-selected="false">Тааруулах</button>
+  </nav>
+
+  <div class="chips" id="chips" role="group" aria-label="Сэдэв"></div>
+
+  <main>
+    <section id="view-study" aria-label="Цээжлэх">
+      <div class="meter">
+        <span id="st-pos"></span>
+        <div class="bar"><i id="st-bar"></i></div>
+        <span id="st-known"></span>
+      </div>
+      <div class="scene">
+        <div class="card" id="card" role="button" tabindex="0" aria-label="Картыг эргүүлэх">
+          <div class="face front">
+            <div class="face-top"><span class="tag" id="f-kind"></span><span class="no" id="f-no"></span></div>
+            <p class="q" id="f-text"></p>
+            <div class="hint">Дарж эргүүл · хэний санаа вэ?</div>
+          </div>
+          <div class="face back">
+            <div class="face-top"><span class="tag" id="b-topic"></span><span class="no" id="b-no"></span></div>
+            <div class="answer">
+              <div class="eyebrow">Эрдэмтэн</div>
+              <p class="who" id="b-who"></p>
+              <p class="key" id="b-key"></p>
+              <p class="note" id="b-note"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn" id="btn-prev" aria-label="Өмнөх карт"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <button type="button" class="btn" id="btn-again">Давтана</button>
+        <button type="button" class="btn primary" id="btn-know">Мэднэ</button>
+        <button type="button" class="btn" id="btn-next" aria-label="Дараагийн карт"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+      </div>
+      <div class="tools">
+        <button type="button" class="linkbtn" id="btn-shuffle">Холих</button>
+        <button type="button" class="linkbtn" id="btn-reset">Мэдсэн тэмдэглэгээг арилгах</button>
+      </div>
+    </section>
+
+    <section id="view-quiz" aria-label="Шалгалт" hidden>
+      <div id="quiz-body" style="display:flex;flex-direction:column;gap:16px"></div>
+    </section>
+
+    <section id="view-match" aria-label="Тааруулах" hidden>
+      <div id="match-body" style="display:flex;flex-direction:column;gap:16px"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+var TOPICS=[['all','Бүгд'],['soc','Социологи'],['pol','Улс төр'],['eco','Эдийн засаг']];
+var TN={soc:'Социологи',pol:'Улс төр',eco:'Эдийн засаг'};
+
+var CARDS=[
+ {id:'q56',no:'#56',kind:'Ишлэл',t:'pol',a:'Р. Путнам',k:'Иргэний нийгэм',
+  f:'“Төр, эдийн засаг, гэр бүлээс ангид орших нийгмийн хүрээг иргэний нийгэм гэнэ.”',
+  note:'АНУ-ын улс төр судлаач. Иргэдийн сайн дурын нэгдэл, итгэлцэл буюу нийгмийн капиталаар иргэний нийгмийн хүчийг тайлбарласан.'},
+ {id:'q51',no:'#51',kind:'Ишлэл',t:'eco',a:'Адам Смит',k:'Татварын зарчим',
+  f:'“Татвар хураалтын үндсэн зарчмуудыг тодорхойлсон: 1. Шударга байх, 2. Ил тод байх.”',
+  note:'Шотландын эдийн засагч, “Үндэстний баялаг” (1776) номын зохиогч. “Үл үзэгдэх гар”-ын санаагаараа алдартай.'},
+ {id:'q54',no:'#54',kind:'Ишлэл',t:'eco',a:'Жон Мейнард Кейнс',k:'Нийт эрэлт ба төр',
+  f:'“Зах зээлийн тогтолцоо нь эдийн засгийн уналтаас өөрийгөө аварч чадахгүй ба төрийн оролцоотой нийт эрэлт нэмэгдүүлэх замаар энэ зорилгыг шийдэх ёстой.”',
+  note:'Английн эдийн засагч. Хямралын үед төр нийт эрэлтийг дэмжих ёстой гэж үзсэн.'},
+ {id:'q52',no:'#52',kind:'Ишлэл',t:'eco',a:'Фридрик фон Хайек',k:'Мөнгө ба үнийн түвшин',
+  f:'“Гүйлгээнд байгаа мөнгөний тоо хэмжээ болон үнийн түвшний хооронд шууд холбоо байхгүй.”',
+  note:'Австрийн сургуулийн эдийн засагч, либерал сэтгэгч. “Боолчлолд хөтлөх зам” номоороо алдартай.'},
+ {id:'q53',no:'#53',kind:'Ишлэл',t:'eco',a:'Фридрик фон Хайек',k:'Зах зээл ба төр',
+  f:'“Зах зээлийн эдийн засаг дахь төрийн идэвхтэй оролцоо нь түүнд зөвхөн хор учруулна.”',
+  note:'Австрийн сургуулийн эдийн засагч, либерал сэтгэгч. Төрийн оролцоог аль болох хязгаарлахыг дэмжсэн.'},
+ {id:'q55',no:'#55',kind:'Ишлэл',t:'soc',a:'Р. Дарендорьф',k:'Эрх чөлөө ба хамтын ажиллагаа',
+  f:'“Аливаа зүйлийг хийж бүтээнэ гэдэг нь өчүүхэн ч атугай бусадтай эрх чөлөөтэй хамтран ажиллана гэсэн үг.”',
+  note:'Германы социологич. Нийгмийн мөргөлдөөний онолд эрх мэдлийн харилцааг голлон авч үзсэн.'},
+ {id:'q14',no:'#14',kind:'Ишлэл',t:'soc',a:'Ж. Мёрдок',k:'Соёлын түгээмэл шинж',
+  f:'“Аль ч ард түмний түүх соёл, угсаатны зүйд хөдөлмөрийн зэвсэг бүтээх, биеэ гоёх, цус холилдохыг хориглох, бүжиг, спорт, шашны зан үйл, бэлэг өгөх, зочлох, оршуулах ёс заншил, хэл боловсрол зэрэг 72 төрлийн түгээмэл шинж илэрдэг.”',
+  note:'АНУ-ын антрополог. Бүх нийгэмд тохиолддог соёлын түгээмэл шинжийг (cultural universals) судалсан.'},
+ {id:'q29',no:'#29',kind:'Ишлэл',t:'soc',a:'М. Вебер',k:'Статусын бүлэг',
+  f:'“Статусын бүлэг нь нийгмийн ялгаралтай холбоотой. Ж: Их хэмжээний баялгийг олж авсан баяныг бус, харин ядуурч хоосорсон язгууртныг хүмүүс илүүтэй хүндэлдэг.”',
+  note:'Германы социологич. Нийгмийн давхраажилтыг анги (баялаг), статус (нэр хүнд), нам (эрх мэдэл) гэсэн гурван хэмжээсээр авч үзсэн.'},
+ {id:'q43',no:'#43',kind:'Ишлэл',t:'pol',a:'Жон Локк',k:'Байгалийн эрх',
+  f:'“Хүмүүс байгалиас заяасан эрх чөлөөтэй. Гэтэл яагаад төр засагт захируулж эрх чөлөөгөө хязгаарлуулдаг юм бэ? Хариулт нь байгалиас заяасан эрх чөлөөгөө эдлэх нь таатай гэсэн үг биш. Хүмүүс бусдын халдлагад хэзээ ч өртөх боломжтой. Ийм учраас тэд өөртэй нь ижил аюулгүй байдлаа хангах хэрэгцээтэй байгаа хүмүүсийг олж мэддэг.”',
+  note:'Английн гүн ухаантан. Амь нас, эрх чөлөө, өмчийн байгалийн эрх болон нийгмийн гэрээний санааг дэвшүүлсэн.'},
+ {id:'q26',no:'#26',kind:'Ишлэл',t:'soc',a:'К. Маркс',k:'Анги',
+  f:'“Анги бол үйлдвэрлэлийн хэрэгсэлтэй харилцах харилцаа, түүнээс хамаарулан амьдрах нөхцөлөө бүрлүүлэх аргаараа ялгаатай нийгмийн томоохон бүлэг юм.”',
+  note:'Германы сэтгэгч. Анги нь үйлдвэрлэлийн хэрэгсэлтэй харилцах харилцаагаар тодорхойлогддог, ангийн тэмцэл түүхийг хөдөлгөнө гэж үзсэн.'},
+ {id:'q40',no:'#40',kind:'Ишлэл',t:'soc',a:'Г. Ленский, Ж. Ленский',k:'Нийгмийн хувьсал',
+  f:'“Ан агнуурын нийгмээс цэцэрлэгжүүлэх улмаар хөдөө аж ахуйг, түүнээс орчин үеийн нийгэм рүү хувьсан өөрчлөгджээ.”',
+  note:'Нийгмийн хувьслын онол: ан агнуур, түүх түүвэрлэлт, цэцэрлэгжүүлэх, хөдөө аж ахуй, үйлдвэрийн нийгэм гэсэн шатаар хөгжинө.'},
+ {id:'q23',no:'#23',kind:'Ишлэл',t:'pol',a:'Жон Локк',k:'Засаглалын хуваалт',
+  f:'“Дээд засаглал нь хоорондоо харилцан уялдаатай, харилцан үл хамаарах гурван улс төрийн байгууллаас бүрдэх ёстой.”',
+  note:'Засаглалын эрх мэдлийг хуваах санааг дэвшүүлсэн. Хожим Монтескье гурван эрх мэдлийн онолыг боловсруулсан.'},
+ {id:'q18',no:'#18',kind:'Онол',t:'pol',a:'Р. Даль',k:'Ардчиллын судлаач',
+  f:'Ардчиллын үнэт зүйлсийг нарийвчлан судалж, ойлголтыг цэгцэлж өгсөн эрдэмтэн.',
+  note:'АНУ-ын улс төр судлаач. “Полиархи” буюу олонхийн засаглалын онолыг боловсруулсан.'},
+ {id:'q10',no:'#10',kind:'Ишлэл',t:'soc',a:'Ж. Г. Мид',k:'Бэлгэ тэмдэг',
+  f:'“Хүмүүс бэлгэ тэмдэг дүүрэн ертөнцөөр амьдардаг.”',
+  note:'АНУ-ын нийгмийн сэтгэл судлаач. Бэлгэдлийн харилцан үйлчлэлийн онолын үндэс суурийг тавьсан.'},
+ {id:'q22',no:'#22',kind:'Ишлэл',t:'pol',a:'Ш. Монтескье',k:'Гурван эрх мэдэл',
+  f:'“Аливаа төрд 3 төрлийн эрх мэдэл оршдог. Хууль тогтоох, гүйцэтгэх, шүүх эрх мэдэл.”',
+  note:'Францын гүн ухаантан. “Хуулийн сүнс” бүтээлдээ гурван эрх мэдлийг хооронд нь салгах ёстой гэж үзсэн.'},
+ {id:'q24',no:'#24',kind:'Ишлэл',t:'soc',a:'Ө. Күүс',k:'Анги ба эрүүл мэнд',
+  f:'“Ангийн ялгаа нь эрүүл мэндийн үйлчилгээ авах үйлдэл, хандлагын ялгаанд хүргэдэг.”',
+  note:'Нийгмийн давхраажилт нь хүмүүсийн эрүүл мэндийн үйлчилгээ авах боломж, хандлагад нөлөөлдөг гэсэн санаа.'},
+ {id:'q21',no:'#21',kind:'Ишлэл',t:'pol',a:'Черчилль',k:'Ардчилал',
+  f:'“Ардчилал бол хамгийн муу засаглалын хэлбэр, гэхдээ хүн төрөлхтөн үүнээс илүүг хараахан олоогүй байна.”',
+  note:'Их Британийн Ерөнхий сайд Уинстон Черчилль. 1947 онд Нийтийн танхимд хэлсэн үгэндээ ингэж хэлсэн гэдэг.'},
+ {id:'q34',no:'#34',kind:'Ишлэл',t:'soc',a:'Э. Дюркгейм',k:'Хөдөлмөрийн хуваарь',
+  f:'“Хөдөлмөрийн хуваарь нийгмийн зохион байгуулалтын үндэс болохын зэрэгцээ тэгш бус байдалд хүрэх үндсэн шалтгаан болно.”',
+  note:'Францын социологич. Хөдөлмөрийн хуваарийг нийгмийн эв нэгдлийн үндэс гэж үзэж, механик ба органик эв нэгдлийг ялгасан.'},
+
+ {id:'t1',no:'О-1',kind:'Онол',t:'soc',a:'О. Конт',k:'Позитивизм',
+  f:'Нийгмийг шинжлэх ухааны аргаар судлах ёстой гэж үзсэн. “Социологи” гэсэн нэр томьёог анх хэрэглэсэн.',
+  note:'Францын сэтгэгч, 19-р зуун. Социологийг тусдаа шинжлэх ухаан болгох үндэс тавьсан.'},
+ {id:'t2',no:'О-2',kind:'Онол',t:'soc',a:'Х. Спенсер',k:'Нийгмийн дарвинизм',
+  f:'Нийгмийг амьд организмтай зүйрлэж, нийгмийн хөгжилд “хамгийн тохирсон нь амьд үлдэнэ” гэсэн зарчим хамааруулсан.',
+  note:'Английн сэтгэгч. Нийгэм нь организм шиг хэсэг хэсгээсээ бүрдэж, аажмаар хувьсан өөрчлөгддөг гэж үзсэн.'},
+ {id:'t3',no:'О-3',kind:'Онол',t:'pol',a:'Т. Гоббс',k:'Левиафан',
+  f:'Төргүй байгалийн байдалд “бүгд бүгдийн эсрэг дайн” болдог тул хүмүүс аюулгүй байдлын төлөө хүчирхэг төрд захирагдах гэрээ байгуулдаг.',
+  note:'Английн гүн ухаантан. “Левиафан” (1651) бүтээлдээ төрийн гарал үүслийг нийгмийн гэрээгээр тайлбарласан.'},
+ {id:'t4',no:'О-4',kind:'Онол',t:'pol',a:'Ж. Ж. Руссо',k:'Нийгмийн гэрээ',
+  f:'Эрх мэдлийн эх сурвалж нь ард түмэн. Хууль нь ард түмний нийтийн хүслийг илэрхийлэх ёстой.',
+  note:'Швейцарь-Францын гүн ухаантан. “Нийгмийн гэрээ” (1762) бүтээлээрээ ард түмний ноёрхлын санааг хөгжүүлсэн.'},
+ {id:'t5',no:'О-5',kind:'Онол',t:'soc',a:'Р. Мертон',k:'Хурцадмалын онол',
+  f:'Нийгмийн тавьсан зорилго ба түүнд хүрэх хууль ёсны арга зам таардаггүй үед хүмүүс гажуудалтай зан авирт хандана.',
+  note:'АНУ-ын социологич. Дюркгеймийн аномиагийн санааг хөгжүүлж, гажуудлын онолыг боловсруулсан.'},
+ {id:'t6',no:'О-6',kind:'Онол',t:'soc',a:'Т. Парсонс',k:'Бүтэц-үүргийн онол',
+  f:'Нийгмийг тогтвортой тогтолцоо гэж үзэж, дасан зохицох, зорилгодоо хүрэх, нэгдэх, хэв маяг хадгалах дөрвөн үүрэг (AGIL) биелүүлнэ гэсэн.',
+  note:'АНУ-ын социологич. Нийгмийн институт бүр тогтолцооны тэнцвэрт байдлыг хангах үүрэгтэй гэж үзсэн.'},
+ {id:'t7',no:'О-7',kind:'Онол',t:'soc',a:'Ч. Кули',k:'Толин тусгал би',
+  f:'Бид өөрийгөө бусад биднийг хэрхэн хардаг гэж төсөөлөхөөс хамааран хардаг.',
+  note:'АНУ-ын социологич. Хүний “би” гэсэн дүр нь бусадтай харилцах явцад бүрэлдэнэ гэж үзсэн.'},
+ {id:'t8',no:'О-8',kind:'Онол',t:'soc',a:'Э. Гофман',k:'Драматургийн онол',
+  f:'Өдөр тутмын харилцааг тайзан дээрх жүжиг гэж үзэж, хүн бусдад үзүүлэх дүр төрхөө удирддаг гэсэн.',
+  note:'Канад-Америкийн социологич. “Урд тайз” ба “арын тайз” гэсэн ойлголтыг хэрэглэсэн.'},
+ {id:'t9',no:'О-9',kind:'Онол',t:'soc',a:'А. Маслоу',k:'Хэрэгцээний шатлал',
+  f:'Хэрэгцээ шаталсан бүтэцтэй: эхлээд амьдрах, аюулгүй байх, дараа нь хайр хүндлэл, хамгийн дээд нь өөрийгөө хөгжүүлэх.',
+  note:'АНУ-ын сэтгэл судлаач. Доод шатны хэрэгцээ хангагдсаны дараа дээд шатны хэрэгцээ тэргүүлнэ гэж үзсэн.'},
+ {id:'t10',no:'О-10',kind:'Онол',t:'soc',a:'П. Бурдье',k:'Соёлын капитал',
+  f:'Хүний байр суурийг эдийн засгийн төдийгүй соёлын болон нийгмийн капитал (танил талын сүлжээ) тодорхойлдог.',
+  note:'Францын социологич. Боловсрол, хэв маяг, амт нь нийгмийн ялгаа үржүүлдэг гэж үзсэн.'},
+ {id:'t11',no:'О-11',kind:'Онол',t:'soc',a:'Ф. Тённис',k:'Нийгэмлэг ба нийгэм',
+  f:'Нийгмийг ойр дотно, ёс заншилд суурилсан “нийгэмлэг”, ашиг ба гэрээнд суурилсан “нийгэм” гэж хоёр ангилсан.',
+  note:'Германы социологич. Тосгоны нөхөрлөл ба хотын гэрээт харилцааг харьцуулсан.'},
+ {id:'t12',no:'О-12',kind:'Онол',t:'eco',a:'Т. Веблен',k:'Харагдахуйц хэрэглээ',
+  f:'Баячууд эд хөрөнгөө бусдад харуулахын тулд хэрэгцээнээс давсан зардал гаргадаг.',
+  note:'АНУ-ын эдийн засагч, социологич. Хэрэглээ нь статус харуулах хэрэгсэл болдог гэж үзсэн.'},
+ {id:'t13',no:'О-13',kind:'Онол',t:'eco',a:'Т. Мальтус',k:'Хүн амын онол',
+  f:'Хүн ам геометрийн прогрессоор, хүнсний нөөц арифметик прогрессоор өснө гэж үзсэн.',
+  note:'Английн эдийн засагч. Хүн амын хэт өсөлт өлсгөлөн, өвчин зэргээр тэнцвэржинэ гэж үзсэн.'},
+ {id:'t14',no:'О-14',kind:'Онол',t:'eco',a:'М. Фридман',k:'Монетаризм',
+  f:'Инфляци нь мөнгөний нийлүүлэлтийн хэт өсөлтөөс үүсдэг тул төв банк мөнгөний нийлүүлэлтээ хянах ёстой.',
+  note:'АНУ-ын эдийн засагч. Чикагогийн сургуулийн төлөөлөгч, зах зээлийн эрх чөлөөг дэмжигч.'},
+ {id:'t15',no:'О-15',kind:'Онол',t:'eco',a:'Адам Смит',k:'Үл үзэгдэх гар',
+  f:'Хүн бүр өөрийн ашиг сонирхлоор ажиллахад зах зээл “үл үзэгдэх гар”-аар нийгмийн сайн сайхныг бий болгодог.',
+  note:'Шотландын эдийн засагч. Сонгодог эдийн засгийн үндэс суурийг тавьсан.'},
+ {id:'t16',no:'О-16',kind:'Онол',t:'soc',a:'Ч. Р. Миллс',k:'Социологийн төсөөлөл',
+  f:'Хувь хүний хувийн бэрхшээлийг нийгмийн бүтэц, түүхтэй холбон харах чадвар.',
+  note:'АНУ-ын социологич. Жишээ нь ажилгүйдлийг хувь хүний буруу бус нийгмийн асуудал гэж харна.'},
+ {id:'t17',no:'О-17',kind:'Онол',t:'soc',a:'П. Сорокин',k:'Нийгмийн хөдөлгөөнт байдал',
+  f:'Хүмүүс нийгмийн давхраа дундуур дээш, доош, хажуу тийш шилжих хөдөлгөөнийг судалсан.',
+  note:'Орос-Америкийн социологич. Босоо ба хэвтээ хөдөлгөөнт байдлыг ялгасан.'},
+ {id:'t18',no:'О-18',kind:'Онол',t:'soc',a:'М. Вебер',k:'Бюрократ',
+  f:'Дүрэм журам, шатлал, мэргэшилд тулгуурласан байгууллагыг үр ашигтай зохион байгуулалтын идеал загвар гэж үзсэн.',
+  note:'Германы социологич. Орчин үеийн байгууллагын жам ёсны хэлбэр гэж бюрократыг тайлбарласан.'},
+ {id:'t19',no:'О-19',kind:'Онол',t:'soc',a:'Э. Дюркгейм',k:'Аномиа',
+  f:'Хэм хэмжээ сулрах үед хувь хүний хүсэл хязгааргүй болж, нийгмийн зохицол алдагддаг байдлыг нэрлэсэн.',
+  note:'Францын социологич. “Амиа хорлолт” судалгаандаа нийгмийн хүчин зүйлийн нөлөөг харуулсан.'},
+ {id:'t20',no:'О-20',kind:'Онол',t:'soc',a:'К. Маркс',k:'Суурь ба дээд бүтэц',
+  f:'Нийгмийн эдийн засгийн суурь нь улс төр, хууль, ёс суртахуун зэрэг дээд бүтцийг тодорхойлдог.',
+  note:'Германы сэтгэгч. Түүхэн материализмын гол санаа.'},
+ {id:'t21',no:'О-21',kind:'Онол',t:'soc',a:'У. Огборн',k:'Соёлын хоцрогдол',
+  f:'Техник технологи хурдан өөрчлөгддөг бол үнэт зүйл, хууль, ёс заншил удаан өөрчлөгдөж, хоцрогдол үүснэ.',
+  note:'АНУ-ын социологич. Материаллаг соёл ба материаллаг бус соёлын өөрчлөлтийн хурдны зөрүүг нэрлэсэн.'}
+];
+
+var BY={};CARDS.forEach(function(c){BY[c.id]=c;});
+var ALL_AUTHORS=Array.from(new Set(CARDS.map(function(c){return c.a;})));
+var reduced=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+var LS='nuc-known-v1';
+function loadKnown(){try{var r=localStorage.getItem(LS);return new Set(r?JSON.parse(r):[]);}catch(e){return new Set();}}
+function saveKnown(){try{localStorage.setItem(LS,JSON.stringify(Array.from(known)));}catch(e){}}
+var known=loadKnown();
+
+var S={mode:'study',topic:'all',study:null,quiz:null,match:null,timer:null};
+
+function $(s){return document.querySelector(s);}
+function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e;}
+function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function poolFor(t){return CARDS.filter(function(c){return t==='all'||c.t===t;});}
+function fmt(ms){var s=Math.floor(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+function toTop(){window.scrollTo({top:0,behavior:reduced?'auto':'smooth'});}
+
+/* header, chips, tabs */
+(function(){
+  var q=CARDS.filter(function(c){return c.kind==='Ишлэл';}).length;
+  $('#sub').textContent=CARDS.length+' карт · '+q+' ишлэл, '+(CARDS.length-q)+' онол · хэний санаа вэ?';
+})();
+
+function paintChips(){
+  var box=$('#chips');box.replaceChildren();
+  TOPICS.forEach(function(p){
+    var b=el('button','chip');b.type='button';
+    b.setAttribute('aria-pressed',String(S.topic===p[0]));
+    b.append(p[1],' ',el('small',null,String(poolFor(p[0]).length)));
+    b.addEventListener('click',function(){setTopic(p[0]);});
+    box.append(b);
+  });
+}
+
+function setMode(m){
+  S.mode=m;
+  ['study','quiz','match'].forEach(function(k){
+    $('#view-'+k).hidden=(k!==m);
+    var t=$('#tab-'+k);t.setAttribute('aria-selected',String(k===m));
+  });
+  if(m==='study'&&!S.study)startStudy(false);
+  if(m==='quiz'&&!S.quiz)startQuiz();
+  if(m==='match'&&!S.match)startMatch();
+  if(m==='match'&&S.match&&S.match.t0&&!S.match.fin)startTimer();
+}
+function setTopic(t){
+  S.topic=t;S.study=null;S.quiz=null;S.match=null;stopTimer();
+  paintChips();setMode(S.mode);
+}
+document.querySelectorAll('.tabs button').forEach(function(b){
+  b.addEventListener('click',function(){setMode(b.dataset.mode);});
+});
+
+/* study */
+function startStudy(doShuffle){
+  var deck=poolFor(S.topic);if(doShuffle)shuffle(deck);
+  S.study={deck:deck,i:0,pending:false,t:0};
+  $('#card').classList.remove('flipped');
+  paintStudy();
+}
+function paintStudy(){
+  var s=S.study,c=s.deck[s.i];
+  $('#f-kind').textContent=c.kind;$('#f-no').textContent=c.no;$('#f-text').textContent=c.f;
+  $('#b-topic').textContent=TN[c.t];$('#b-no').textContent=c.no;
+  $('#b-who').textContent=c.a;$('#b-key').textContent=c.k;$('#b-note').textContent=c.note;
+  var kn=s.deck.filter(function(x){return known.has(x.id);}).length;
+  $('#st-pos').textContent=(s.i+1)+' / '+s.deck.length;
+  $('#st-bar').style.width=((s.i+1)/s.deck.length*100)+'%';
+  $('#st-known').textContent=kn===s.deck.length?'Бүгдийг мэдлээ':'Мэдсэн '+kn;
+  var kb=$('#btn-know');kb.classList.toggle('on',known.has(c.id));kb.textContent=known.has(c.id)?'Мэдсэн ✓':'Мэднэ';
+}
+function flipCard(){$('#card').classList.toggle('flipped');}
+function goStudy(d){
+  var s=S.study;if(!s||s.pending)return;
+  var card=$('#card');
+  function move(){s.i=(s.i+d+s.deck.length)%s.deck.length;s.pending=false;paintStudy();}
+  if(card.classList.contains('flipped')){
+    s.pending=true;card.classList.remove('flipped');
+    s.t=setTimeout(move,reduced?0:280);
+  }else{move();}
+}
+$('#card').addEventListener('click',flipCard);
+$('#card').addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();flipCard();}});
+$('#btn-prev').addEventListener('click',function(){goStudy(-1);});
+$('#btn-next').addEventListener('click',function(){goStudy(1);});
+$('#btn-know').addEventListener('click',function(){
+  var s=S.study;if(!s||s.pending)return;
+  known.add(s.deck[s.i].id);saveKnown();paintStudy();goStudy(1);
+});
+$('#btn-again').addEventListener('click',function(){
+  var s=S.study;if(!s||s.pending)return;
+  known.delete(s.deck[s.i].id);saveKnown();paintStudy();goStudy(1);
+});
+$('#btn-shuffle').addEventListener('click',function(){startStudy(true);});
+$('#btn-reset').addEventListener('click',function(){known=new Set();saveKnown();if(S.study)paintStudy();});
+document.addEventListener('keydown',function(e){
+  if(S.mode!=='study')return;
+  if(e.key==='ArrowRight')goStudy(1);
+  else if(e.key==='ArrowLeft')goStudy(-1);
+});
+
+/* quiz */
+function startQuiz(list){
+  var l=list||shuffle(poolFor(S.topic)).slice(0,10);
+  S.quiz={list:l,i:0,score:0,streak:0,missed:[],answered:false,opts:{},scoreEl:null};
+  paintQuiz();
+}
+function optionsFor(c){
+  var others=shuffle(ALL_AUTHORS.filter(function(a){return a!==c.a;})).slice(0,3);
+  return shuffle([c.a].concat(others));
+}
+function paintQuiz(){
+  var q=S.quiz,body=$('#quiz-body');body.replaceChildren();
+  if(q.i>=q.list.length){paintQuizEnd(body);return;}
+  var c=q.list[q.i];
+  var meter=el('div','meter');
+  var bar=el('div','bar'),fill=el('i');fill.style.width=(q.i/q.list.length*100)+'%';bar.append(fill);
+  q.scoreEl=el('span',null,'Оноо '+q.score);
+  meter.append(el('span',null,'Асуулт '+(q.i+1)+' / '+q.list.length),bar,q.scoreEl);
+  var card=el('div','face front');
+  var top=el('div','face-top');top.append(el('span','tag',c.kind),el('span','no',c.no));
+  card.append(top,el('p','q',c.f),el('div','ask','Хэний санаа вэ?'));
+  var opts=el('div','opts');
+  var ol=q.opts[q.i]||(q.opts[q.i]=optionsFor(c));
+  ol.forEach(function(a,idx){
+    var b=el('button','opt');b.type='button';b.dataset.a=a;
+    b.append(el('span','ltr','АБВГ'.charAt(idx)),el('span','otxt',a));
+    b.addEventListener('click',function(){pick(b,a);});
+    opts.append(b);
+  });
+  var fb=el('div');fb.id='fbwrap';fb.setAttribute('aria-live','polite');
+  fb.style.cssText='display:flex;flex-direction:column;gap:12px';
+  body.append(meter,card,opts,fb);
+}
+function pick(btn,a){
+  var q=S.quiz;if(q.answered)return;q.answered=true;
+  var c=q.list[q.i],ok=(a===c.a);
+  document.querySelectorAll('#quiz-body .opt').forEach(function(b){
+    b.disabled=true;
+    if(b.dataset.a===c.a)b.classList.add('correct');
+    else if(b===btn)b.classList.add('wrong');
+    else b.classList.add('dim');
+  });
+  if(ok){q.score++;q.streak++;}else{q.streak=0;q.missed.push(c);}
+  q.scoreEl.textContent='Оноо '+q.score;
+  var fb=el('div','fb '+(ok?'ok':'bad'));
+  fb.append(el('b',null,ok?(q.streak>1?'Зөв! Цуваа '+q.streak:'Зөв!'):'Буруу. Зөв хариулт: '+c.a),el('p',null,c.k+'. '+c.note));
+  var last=(q.i===q.list.length-1);
+  var next=el('button','btn primary',last?'Дүнг харах':'Дараагийн');next.type='button';
+  next.addEventListener('click',function(){q.i++;q.answered=false;paintQuiz();toTop();});
+  var wrap=$('#fbwrap');wrap.append(fb,next);
+  fb.scrollIntoView({block:'nearest',behavior:reduced?'auto':'smooth'});
+}
+function paintQuizEnd(body){
+  var q=S.quiz,n=q.list.length,pct=Math.round(q.score/n*100);
+  var msg=pct>=90?'Төгс байна!':pct>=70?'Сайн байна':pct>=50?'Дундаж. Дахин нэг давтъя':'Картууд дээр дахин цээжилье';
+  var box=el('div','result');
+  box.append(el('div','eyebrow','Дүн'),el('div','score',q.score+' / '+n),el('p','msg',msg));
+  if(q.missed.length){
+    box.append(el('div','eyebrow','Алдсан карт'));
+    var ul=el('ul','miss');
+    q.missed.forEach(function(c){var li=el('li');li.append(el('span',null,c.k),el('b',null,c.a));ul.append(li);});
+    box.append(ul);
+  }
+  var row=el('div','row2');
+  var again=el('button','btn primary','Дахин тоглох');again.type='button';
+  again.addEventListener('click',function(){startQuiz();toTop();});
+  row.append(again);
+  if(q.missed.length){
+    var rep=el('button','btn','Алдсанаа давтах');rep.type='button';
+    rep.addEventListener('click',function(){startQuiz(shuffle(q.missed.slice()));toTop();});
+    row.append(rep);
+  }
+  box.append(row);
+  body.append(box);
+}
+
+/* match */
+function stopTimer(){if(S.timer){clearInterval(S.timer);S.timer=null;}}
+function startTimer(){
+  stopTimer();
+  S.timer=setInterval(function(){
+    var m=S.match;
+    if(S.mode==='match'&&m&&m.timeEl&&m.t0&&!m.fin)m.timeEl.textContent=fmt(Date.now()-m.t0);
+  },500);
+}
+function startMatch(){
+  stopTimer();
+  var pool=shuffle(poolFor(S.topic)),seen=new Set(),items=[];
+  for(var i=0;i<pool.length&&items.length<6;i++){
+    if(seen.has(pool[i].a))continue;
+    seen.add(pool[i].a);items.push(pool[i]);
+  }
+  S.match={items:items,left:shuffle(items.slice()),right:shuffle(items.slice()),sel:null,done:new Set(),moves:0,t0:0,time:0,wrong:null,lock:false,fin:false,timeEl:null};
+  paintMatch();
+}
+function paintMatch(){
+  var m=S.match,body=$('#match-body');body.replaceChildren();
+  var meter=el('div','meter');
+  var bar=el('div','bar'),fill=el('i');fill.style.width=(m.done.size/m.items.length*100)+'%';bar.append(fill);
+  var right=el('span');m.timeEl=el('span',null,fmt(m.fin?m.time:(m.t0?Date.now()-m.t0:0)));
+  right.append(m.moves+' алхам · ',m.timeEl);
+  meter.append(el('span',null,'Хос '+m.done.size+' / '+m.items.length),bar,right);
+  var board=el('div','board');
+  function col(side,list){
+    var d=el('div','col');d.append(el('div','colhead',side==='L'?'Онол':'Эрдэмтэн'));
+    list.forEach(function(c){
+      var b=el('button','tile',side==='L'?c.k:c.a);b.type='button';
+      if(m.done.has(c.id)){b.classList.add('ok');b.disabled=true;}
+      if(m.sel&&m.sel.side===side&&m.sel.id===c.id){b.classList.add('sel');b.setAttribute('aria-pressed','true');}
+      if(m.wrong&&((side==='L'&&m.wrong[0]===c.id)||(side==='R'&&m.wrong[1]===c.id)))b.classList.add('bad');
+      b.addEventListener('click',function(){tap(side,c.id);});
+      d.append(b);
+    });
+    return d;
+  }
+  board.append(col('L',m.left),col('R',m.right));
+  body.append(meter,board);
+  if(m.fin){
+    var box=el('div','result');
+    box.append(el('div','eyebrow','Дууслаа'),el('p','msg','Бүх хос олдлоо! '+m.moves+' алхам, '+fmt(m.time)+'.'));
+    if(m.moves===m.items.length)box.append(el('p',null,'Нэг ч алдаагүй.'));
+    var nb=el('button','btn primary','Шинэ тоглоом');nb.type='button';
+    nb.addEventListener('click',function(){startMatch();toTop();});
+    box.append(nb);body.append(box);
+  }else{
+    var rb=el('button','linkbtn','Шинээр холих');rb.type='button';
+    rb.addEventListener('click',startMatch);
+    body.append(rb);
+  }
+}
+function tap(side,id){
+  var m=S.match;if(!m||m.lock||m.fin)return;
+  if(!m.t0){m.t0=Date.now();startTimer();}
+  if(!m.sel||m.sel.side===side){
+    m.sel=(m.sel&&m.sel.side===side&&m.sel.id===id)?null:{side:side,id:id};
+    paintMatch();return;
+  }
+  var l=side==='L'?id:m.sel.id,r=side==='R'?id:m.sel.id;
+  m.moves++;m.sel=null;
+  if(l===r){
+    m.done.add(l);
+    if(m.done.size===m.items.length){m.fin=true;m.time=Date.now()-m.t0;stopTimer();}
+    paintMatch();
+  }else{
+    m.wrong=[l,r];m.lock=true;paintMatch();
+    setTimeout(function(){m.wrong=null;m.lock=false;if(S.match===m)paintMatch();},650);
+  }
+}
+
+paintChips();
+setMode('study');
+})();
+</script>
+</body>
+</html>
